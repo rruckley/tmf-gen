@@ -5,6 +5,7 @@ use std::{cell::Ref, fs::{self, File}, io::{Read, Write}, process::Output};
 use std::path::Path;
 use convert_case::{Case,Casing};
 use typify::{TypeSpace, TypeSpaceSettings};
+use codegen::Scope;
 
 use openapiv3::{OpenAPI, ReferenceOr};
 
@@ -41,6 +42,10 @@ fn main() -> Result<(),std::io::Error> {
     let mut file = File::open(file_name)?;
 
     let mut contents = String::new();
+
+    let mut tmf_scope = Scope::new();
+
+    let mut tmf_module = tmf_scope.new_module(&tmf);
 
     file.read_to_string(&mut contents)?;
     // dbg!(&contents);
@@ -88,9 +93,21 @@ fn main() -> Result<(),std::io::Error> {
                     Err(e) => File::open(&file_path).unwrap()
                 };
 
-                let file_contents = format!("//! {}\npub struct {} {{ }}\n",&name,&name);
+                // let file_contents = format!("//! {}\npub struct {} {{ }}\n",&name,&name);
+                
 
-                let _result = file.write(file_contents.as_bytes())?;
+                let mut _tmf_struct = tmf_scope.new_struct(&name)
+                    .derive("Debug")
+                    .derive("Clone")
+                    .derive("Default")
+                    .derive("HasId")
+                    .derive("Serialize")
+                    .derive("Deserialize")
+                    .field("id", "Option<String>")
+                    .field("href", "Option<Uri>");
+                let tmf_string = tmf_scope.to_string();
+
+                let _result = file.write(tmf_string.as_bytes())?;
             }
         }
     }                                                                                                                                                                                                                                  
