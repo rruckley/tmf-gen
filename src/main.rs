@@ -39,78 +39,33 @@ fn main() -> Result<(),std::io::Error> {
 
     info!("Using input: {}",file_name);
 
-    let mut file = File::open(file_name)?;
+    let file = File::open(file_name)?;
 
     let mut contents = String::new();
 
     let mut tmf_scope = Scope::new();
 
-    let mut tmf_module = tmf_scope.new_module(&tmf);
+    let tmf_mod = tmf_scope.new_module("customer_bill")
+        .import("crate", "HasId")
+        .import("crate","HasName")
+        .import("crate","HasDescription");
 
-    file.read_to_string(&mut contents)?;
-    // dbg!(&contents);
-    let openapi: OpenAPI = serde_json::from_str(contents.as_str()).expect("Could not deserialise input");
+    let tmf_struct = tmf_scope.new_struct("PolicyManagement");
+    tmf_struct
+        .derive("Clone")
+        .derive("Default")
+        .derive("Debug")
+        .doc("Bill Cycle Module")
+        .field("id", "Option<String>")
+        .field("href","Option<String>")
+        .field("description","Option<String>")
+        .vis("pub");
 
-    let components = match openapi.components {
-        Some(c) => c,
-        None => {
-            error!("Could not find components");
-            return Ok(());
-        }
-    };
-    let root_folder = openapi.info.title;
-    info!("OpenAPI Title: {}",&root_folder);
-    let _result = fs::create_dir(format!("{}/{}",out_folder,tmf));
+    tmf_mod.push_struct(&tmf_struct);
 
-    let schemas = components.schemas;
+    let tmf_output = tmf_scope.to_string();
 
-    for (name,object) in schemas {
-        info!("Found schema: {}",name);
-        let mod_name = match name.split_once("_") {
-            Some(s) => {
-                String::from(s.0)
-            },
-            None => name.clone(),
-        }.to_case(Case::Snake);
-        let filename = format!("{}.rs",name.to_case(Case::Snake));
-        debug!("File Name: {}",filename);
-
-        let mod_path = format!("{}/{}/{}",out_folder,tmf,mod_name);
-        debug!("Mod path: {}",mod_path);
-        let _result = fs::create_dir(&mod_path);
-
-        match object {
-            ReferenceOr::Reference { reference } => {
-                info!("Reference {}.{}",name,reference);
-            },
-            ReferenceOr::Item(i) => {
-                info!("Schema {}.schema",name);
-                // Since we are creating a file here, we need to add it to
-                let file_path = format!("{}/{}",mod_path,filename);
-
-                let mut file = match File::create_new(&file_path) {
-                    Ok(f) => f,
-                    Err(e) => File::open(&file_path).unwrap()
-                };
-
-                // let file_contents = format!("//! {}\npub struct {} {{ }}\n",&name,&name);
-                
-
-                let mut _tmf_struct = tmf_scope.new_struct(&name)
-                    .derive("Debug")
-                    .derive("Clone")
-                    .derive("Default")
-                    .derive("HasId")
-                    .derive("Serialize")
-                    .derive("Deserialize")
-                    .field("id", "Option<String>")
-                    .field("href", "Option<Uri>");
-                let tmf_string = tmf_scope.to_string();
-
-                let _result = file.write(tmf_string.as_bytes())?;
-            }
-        }
-    }                                                                                                                                                                                                                                  
+    println!("{}",tmf_output);
 
     Ok(())
 }
